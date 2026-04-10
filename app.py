@@ -14,16 +14,29 @@ def extract_dag_point_plot_property(excel_file='Attendance.xlsx'):
         print(f"Excel file '{excel_file}' loaded successfully with {len(df)} rows.")
 
         if 'Check-Out Status' not in df.columns:
-            print("❌ Error: 'Check-Out Status' column not found.")
+            print("[X] Error: 'Check-Out Status' column not found.")
             return None
         if 'Check-Out Remark' not in df.columns:
-            print("⚠️ Warning: 'Check-Out Remark' column not found. Using only Check-Out Status.")
+            print("[!] Warning: 'Check-Out Remark' column not found. Using only Check-Out Status.")
 
         # Regex patterns
-        dag_regex = re.compile(r"(?:Dag|DAG|Daag|Daga|Dagg|Dage|Dags)[\:\-\_\s=\/\.]*(\d+)|(\d+)\s+dag|Total\s+dag\s+(\d+)", re.IGNORECASE)
-        point_regex = re.compile(r"(?:point|points?|ponit|poin|poit|pont|poits|colect|poins)[\:\-\_\s=\/\.]*(\d+)", re.IGNORECASE)
-        plot_regex = re.compile(r"(?:Plot|plot|Plt|pl|Plott|Plots|plt\.?|Plot#|Plt\-)[\:\-\_\s=\/\.]*(\d+)", re.IGNORECASE)
-        property_regex = re.compile(r"(?:Property|property|Prop|Properties|prop|Prp|Prop#|Property\-)[\:\-\_\s=\/\.]*(\d+)", re.IGNORECASE)
+        dag_regex = re.compile(r"(?:Dag|DAG|Daag|Daga|Dagg|Dage|Dags)[\:\-\_\s=\/\.]*(\d+)|(\d+)(?=\s*(?:dag|dags))|Total\s+dag\s+(\d+)", re.IGNORECASE)
+        point_regex = re.compile(r"(?:point|points?|ponit|poin|poit|pont|poits|colect|poins)[\:\-\_\s=\/\.]*(\d+)|(\d+)(?=\s*(?:point|points?|ponit|poin|poit|pont|poits|colect|poins))", re.IGNORECASE)
+        plot_regex = re.compile(r"(?:Plot|plot|Plt|pl|Plott|Plots|plt\.?|Plot#|Plt\-|plot\s+verify)[\:\-\_\s=\/\.]*(\d+)|(\d+)(?=\s*(?:Plot|plot|Plt|pl|Plott|Plots|plt\.?|Plot#|Plt\-|plot\s+verify))", re.IGNORECASE)
+        property_regex = re.compile(r"(?:Property|property|Prop|Properties|prop|Prp|Prop#|Property\-)[\:\-\_\s=\/\.]*(\d+)|(\d+)(?=\s*(?:Property|property|Prop|Properties|prop|Prp|Prop#|Property\-))", re.IGNORECASE)
+
+        def get_matches(regex_pattern, text):
+            matches = regex_pattern.findall(text)
+            extracted = []
+            for m in matches:
+                if isinstance(m, tuple):
+                    for x in m:
+                        if x:
+                            extracted.append(x)
+                else:
+                    if m:
+                        extracted.append(m)
+            return extracted
 
         def normalize_number(val):
             if val == "" or val is None:
@@ -43,7 +56,7 @@ def extract_dag_point_plot_property(excel_file='Attendance.xlsx'):
 
             dag_val = point_val = plot_val = property_val = None
 
-            if not combined_text or re.search(r'\bnill?\b', combined_text, re.IGNORECASE) or re.fullmatch(r'0+|00', combined_text):
+            if not combined_text or re.search(r'\bnill?\b', combined_text, re.IGNORECASE):
                 dag_values.append(None)
                 point_values.append(None)
                 plot_values.append(None)
@@ -60,26 +73,22 @@ def extract_dag_point_plot_property(excel_file='Attendance.xlsx'):
             for text in (status, remark):
                 if text:
                     if dag_val is None:
-                        dag_matches = dag_regex.findall(text)
+                        dag_matches = get_matches(dag_regex, text)
                         if dag_matches:
-                            for g1, g2, g3 in dag_matches:
-                                dag_val = g1 or g2 or g3
-                                if dag_val:
-                                    dag_val = int(dag_val)
-                                    break
+                            dag_val = int(dag_matches[0])
 
                     if point_val is None:
-                        point_matches = point_regex.findall(text)
+                        point_matches = get_matches(point_regex, text)
                         if point_matches:
                             point_val = int(point_matches[-1])
 
                     if plot_val is None:
-                        plot_matches = plot_regex.findall(text)
+                        plot_matches = get_matches(plot_regex, text)
                         if plot_matches:
                             plot_val = ",".join([str(int(x)) for x in plot_matches])
 
                     if property_val is None:
-                        property_matches = property_regex.findall(text)
+                        property_matches = get_matches(property_regex, text)
                         if property_matches:
                             property_val = ",".join([str(int(x)) for x in property_matches])
 
@@ -103,7 +112,7 @@ def extract_dag_point_plot_property(excel_file='Attendance.xlsx'):
         output_file = excel_file.replace('.xlsx', '_updated.xlsx')
         df.to_excel(output_file, index=False)
 
-        print(f"✅ Updated Excel saved as '{output_file}'")
+        print(f"[OK] Updated Excel saved as '{output_file}'")
         print(f"Total rows processed: {len(df)}")
         print(f"Dag Missing: {(df['Dag'].isna()).sum()}")
         print(f"Point Missing: {(df['Point'].isna()).sum()}")
@@ -113,7 +122,7 @@ def extract_dag_point_plot_property(excel_file='Attendance.xlsx'):
         return df
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"[X] Error: {str(e)}")
         return None
 
 
